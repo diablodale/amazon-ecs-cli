@@ -22,7 +22,7 @@ LINUX_BINARY := bin/linux-amd64/ecs-cli
 DARWIN_BINARY := bin/darwin-amd64/ecs-cli
 WINDOWS_BINARY := bin/windows-amd64/ecs-cli.exe
 LOCAL_PATH := $(ROOT)/scripts:${PATH}
-DEP_RELEASE_TAG := v0.4.1
+DEP_RELEASE_TAG := v0.5.4
 GO_RELEASE_TAG := 1.12
 
 .PHONY: build
