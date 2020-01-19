@@ -30,7 +30,7 @@ func (p *ecsProject) parseV3() (*[]adapter.ContainerConfig, error) {
 		return nil, err
 	}
 
-	servVols, err := adapter.ConvertToV3Volumes(v3Config.Volumes)
+	servVols, err := adapter.ConvertToV3Volumes(v3Config.Volumes, v3Config.Version)
 	if err != nil {
 		return nil, err
 	}

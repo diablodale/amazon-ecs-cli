@@ -24,8 +24,14 @@ func (p *ecsProject) parseV1V2() (*[]adapter.ContainerConfig, error) {
 	}
 	logger.LogUnsupportedProjectFields(libcomposeProject)
 
+	// retrieve Compose version because libcomposeProject.configVersion is not exported
+	version, err := p.checkComposeVersion()
+	if err != nil {
+		return nil, err
+	}
+
 	volumeConfigs := libcomposeProject.VolumeConfigs
-	volumes, err := adapter.ConvertToVolumes(volumeConfigs)
+	volumes, err := adapter.ConvertToVolumes(volumeConfigs, version)
 	if err != nil {
 		return nil, err
 	}

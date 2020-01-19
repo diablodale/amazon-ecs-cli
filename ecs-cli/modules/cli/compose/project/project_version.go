@@ -35,7 +35,7 @@ func (p *ecsProject) checkComposeVersion() (string, error) {
 			return "", err
 		}
 		if 0 < versionNumber && versionNumber < 3 {
-			logrus.Warnf("Minor version (%s) detected. Please format to include only major version (%d).", composeVersion, int(versionNumber))
+			logrus.Debugf("Minor version (%s) detected", composeVersion)
 		}
 	}
 

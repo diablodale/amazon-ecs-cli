@@ -143,14 +143,14 @@ func (p *ecsProject) parseCompose() error {
 		return err
 	}
 	switch version {
-	case "", "1", "1.0", "2", "2.0":
+	case "", "1", "1.0", "2", "2.0", "2.1":
 		configs, err := p.parseV1V2()
 		if err != nil {
 			return err
 		}
 		// TODO: set this in parseV1V2 itself?
 		p.containerConfigs = *configs
-	case "3", "3.0":
+	case "3", "3.0", "3.4":
 		configs, err := p.parseV3()
 		if err != nil {
 			return err

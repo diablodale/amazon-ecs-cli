@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/docker/cli/cli/compose/types"
+	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/go-units"
 	"github.com/docker/libcompose/config"
 	"github.com/docker/libcompose/project"
@@ -428,16 +429,19 @@ func ConvertToULimits(cfgUlimits yaml.Ulimits) ([]*ecs.Ulimit, error) {
 
 // ConvertToVolumes converts the VolumeConfigs map on a libcompose project into
 // a Volumes struct and populates the VolumeEmptyHost field with any named volumes
-func ConvertToVolumes(volumeConfigs map[string]*config.VolumeConfig) (*Volumes, error) {
+func ConvertToVolumes(volumeConfigs map[string]*config.VolumeConfig, version string) (*Volumes, error) {
 	volumes := NewVolumes()
 
 	// Add named volume configs:
 	if volumeConfigs != nil {
 		for name, config := range volumeConfigs {
-			if config != nil {
+			if config == nil {
+				volumes.VolumeEmptyHost = append(volumes.VolumeEmptyHost, name)
+			} else if versions.GreaterThanOrEqualTo(version, "2.1") && (config.External.External) && (config.Driver != "") {
+				volumes.VolumeWithDriverNoProvision[name] = config.Driver
+			} else {
 				return nil, logOutUnsupportedVolumeFields(config.Driver, config.DriverOpts, nil)
 			}
-			volumes.VolumeEmptyHost = append(volumes.VolumeEmptyHost, name)
 		}
 	}
 	return volumes, nil
@@ -445,16 +449,19 @@ func ConvertToVolumes(volumeConfigs map[string]*config.VolumeConfig) (*Volumes, 
 
 // ConvertToV3Volumes converts the VolumesConfig map in a docker/cli config into a
 // Volumes struct and populates the VolumesEmptyHost field with any named volumes
-func ConvertToV3Volumes(volConfig map[string]types.VolumeConfig) (*Volumes, error) {
+func ConvertToV3Volumes(volConfig map[string]types.VolumeConfig, version string) (*Volumes, error) {
 	volumes := NewVolumes()
 
 	// Add named volume configs:
 	if len(volConfig) != 0 {
 		for name, config := range volConfig {
-			if !reflect.DeepEqual(config, types.VolumeConfig{}) {
+			if reflect.DeepEqual(config, types.VolumeConfig{}) {
+				volumes.VolumeEmptyHost = append(volumes.VolumeEmptyHost, name)
+			} else if versions.GreaterThanOrEqualTo(version, "3.4") && (config.External.External) && (config.Driver != "") {
+				volumes.VolumeWithDriverNoProvision[name] = config.Driver
+			} else {
 				return nil, logOutUnsupportedVolumeFields(config.Driver, config.DriverOpts, config.Labels)
 			}
-			volumes.VolumeEmptyHost = append(volumes.VolumeEmptyHost, name)
 		}
 	}
 	return volumes, nil
