@@ -37,7 +37,7 @@
 
 [[constraint]]
   name = "github.com/docker/libcompose"
-  revision = "57bd716502dcbe1799f026148016022b0f3b989c"
+  revision = "4748e8f97e95420bf2087c4b87a70cfced6c8b89"
 
 [[constraint]]
   name = "github.com/flynn/go-shlex"
@@ -78,7 +78,9 @@
 
 [[constraint]]
   name = "github.com/docker/cli"
-  version = "18.06.0-ce"
+  #version = "=18.09.5"
+  revision = "1d4c6d8e492c0598c432314be76e5f59d4c60386"
+  source = "https://github.com/diablodale/cli.git"
 
 [[override]]
   name = "github.com/docker/docker"

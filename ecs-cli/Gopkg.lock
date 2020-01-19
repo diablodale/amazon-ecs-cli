@@ -124,7 +124,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:a5ca15953ec7d39eced701d326903a1ffed0a7f1339a9b02156f6bc6b2a7cefd"
+  digest = "1:fcaa248e3eb61f7919f7ce27ed080bbe0bf0fe8411e1eff3a2c3d02ce4ef4fb1"
   name = "github.com/docker/cli"
   packages = [
     "cli/compose/interpolation",
@@ -135,8 +135,8 @@
     "opts",
   ]
   pruneopts = "UT"
-  revision = "c89750f836c57ce10386e71669e1b08a54c3caeb"
-  version = "v18.09.5"
+  revision = "1d4c6d8e492c0598c432314be76e5f59d4c60386"
+  source = "https://github.com/diablodale/cli.git"
 
 [[projects]]
   digest = "1:4ddc17aeaa82cb18c5f0a25d7c253a10682f518f4b2558a82869506eec223d76"
@@ -211,7 +211,7 @@
   version = "v0.4.0"
 
 [[projects]]
-  digest = "1:b955e5fab6c36709e9afd0d72824df67f040747c069948bdbffb22cf5d7daa5e"
+  digest = "1:8168837f2ba71e346c12c8aaede679260915aa5a4d5ee5e0c631bbfcdc92ef35"
   name = "github.com/docker/libcompose"
   packages = [
     "cli/app",
@@ -227,7 +227,7 @@
     "yaml",
   ]
   pruneopts = "UT"
-  revision = "57bd716502dcbe1799f026148016022b0f3b989c"
+  revision = "4748e8f97e95420bf2087c4b87a70cfced6c8b89"
 
 [[projects]]
   digest = "1:50a46ab1d5edbbdd55125b4d37f1bf503d0807c26461f9ad7b358d6006641d09"
@@ -477,6 +477,7 @@
     "github.com/docker/docker/api/types/container",
     "github.com/docker/docker/api/types/filters",
     "github.com/docker/docker/api/types/network",
+    "github.com/docker/docker/api/types/versions",
     "github.com/docker/docker/client",
     "github.com/docker/go-units",
     "github.com/docker/libcompose/cli/command",
