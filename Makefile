@@ -108,6 +108,7 @@ docker-test:
 docker-dep:
 	docker build \
 		--tag go-dep:$(GO_RELEASE_TAG)-$(DEP_RELEASE_TAG) \
+		--tag go-dep:latest \
 		--build-arg DEP_RELEASE_TAG=$(DEP_RELEASE_TAG) \
 		--build-arg GO_RELEASE_TAG=$(GO_RELEASE_TAG) \
 		- < scripts/go-dep.dockerfile

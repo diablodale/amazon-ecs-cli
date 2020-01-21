@@ -6,5 +6,6 @@ RUN set -x; \
     curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh && \
     go get github.com/golang/mock/mockgen && \
     go get golang.org/x/tools/cmd/goimports && \
+    go get golang.org/x/lint/golint && \
     mkdir -p -m 777 /usr/src/app/src/github.com/aws/amazon-ecs-cli && \
     chmod -R ugo=rwX /usr/src
