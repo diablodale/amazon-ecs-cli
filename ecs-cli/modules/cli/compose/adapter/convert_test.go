@@ -513,9 +513,10 @@ func TestConvertToVolumes(t *testing.T) {
 	expected := &Volumes{
 		VolumeWithHost:  make(map[string]string), // map with key:=hostSourcePath value:=VolumeName
 		VolumeEmptyHost: []string{namedVolume},   // Declare one volume with an empty host
+		VolumeWithDriverNoProvision: make(map[string]string), // map with key:=VolumeName value:=VolumeDriver
 	}
 
-	actual, err := ConvertToVolumes(libcomposeVolumeConfigs)
+	actual, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
 
 	assert.NoError(t, err, "Unexpected error converting libcompose volume configs")
 	assert.Equal(t, expected, actual, "Named volumes should match")
@@ -528,7 +529,7 @@ func TestConvertToVolumes_ErrorsWithDriverSubfield(t *testing.T) {
 		},
 	}
 
-	_, err := ConvertToVolumes(libcomposeVolumeConfigs)
+	_, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
 
 	assert.Error(t, err, "Expected error converting libcompose volume configs when driver is specified")
 }
@@ -542,7 +543,7 @@ func TestConvertToVolumes_ErrorsWithDriverOptsSubfield(t *testing.T) {
 		},
 	}
 
-	_, err := ConvertToVolumes(libcomposeVolumeConfigs)
+	_, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
 
 	assert.Error(t, err, "Expected error converting libcompose volume configs when driver options are specified")
 }
@@ -556,7 +557,7 @@ func TestConvertToVolumes_ErrorsWithExternalSubfield(t *testing.T) {
 		},
 	}
 
-	_, err := ConvertToVolumes(libcomposeVolumeConfigs)
+	_, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
 
 	assert.Error(t, err, "Expected error converting libcompose volume configs when external is specified")
 
@@ -567,7 +568,7 @@ func TestConvertToVolumes_ErrorsWithExternalSubfield(t *testing.T) {
 		},
 	}
 
-	_, err = ConvertToVolumes(libcomposeVolumeConfigs)
+	_, err = ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
 
 	assert.Error(t, err, "Expected error converting libcompose volume configs when external is specified")
 }
