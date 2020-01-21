@@ -238,6 +238,14 @@ func convertToECSVolumes(hostPaths *adapter.Volumes, ecsParams *ECSParams) ([]*e
 		return nil, err
 	}
 	output = append(output, volumesWithoutHost...)
+
+	// volumes with driver declaration and no provisioning/creating
+	volumesWithDriverNoProvision, err := mergeVolumesWithDriverNoProvision(hostPaths.VolumeWithDriverNoProvision, ecsParams)
+	if err != nil {
+		return nil, err
+	}
+	output = append(output, volumesWithDriverNoProvision...)
+
 	return output, nil
 }
 
@@ -280,6 +288,57 @@ func mergeVolumesWithoutHost(composeVolumes []string, ecsParams *ECSParams) ([]*
 	}
 
 	for volName, dVol := range volumesWithoutHost {
+		ecsVolume := &ecs.Volume{
+			Name: aws.String(volName),
+		}
+		if dVol.Name != "" {
+			ecsVolume.DockerVolumeConfiguration = &ecs.DockerVolumeConfiguration{
+				Autoprovision: dVol.Autoprovision,
+			}
+			if dVol.Driver != nil {
+				ecsVolume.DockerVolumeConfiguration.Driver = dVol.Driver
+			}
+			if dVol.Scope != nil {
+				ecsVolume.DockerVolumeConfiguration.Scope = dVol.Scope
+			}
+			if dVol.DriverOptions != nil {
+				ecsVolume.DockerVolumeConfiguration.DriverOpts = aws.StringMap(dVol.DriverOptions)
+			}
+			if dVol.Labels != nil {
+				ecsVolume.DockerVolumeConfiguration.Labels = aws.StringMap(dVol.Labels)
+			}
+		}
+		output = append(output, ecsVolume)
+	}
+	return output, nil
+}
+
+func mergeVolumesWithDriverNoProvision(composeVolumes map[string]string, ecsParams *ECSParams) ([]*ecs.Volume, error) {
+	volumesWithDriverNoProvision := make(map[string]DockerVolume)
+	output := []*ecs.Volume{}
+
+	for volName, volDriver := range composeVolumes {
+		volumesWithDriverNoProvision[volName] = DockerVolume{
+			Name:		   volName,
+			Autoprovision: aws.Bool(false),
+			Scope:         aws.String("shared"),
+			Driver:        aws.String(volDriver),
+		}
+	}
+
+	if ecsParams != nil {
+		for _, dockerVol := range ecsParams.TaskDefinition.DockerVolumes {
+			if dockerVol.Name != "" {
+				if _, foundKey := volumesWithDriverNoProvision[dockerVol.Name]; foundKey {
+					return nil, fmt.Errorf("External volume %s in docker-compose appears also in ecs-params file", dockerVol.Name)
+				}
+			} else {
+				return nil, fmt.Errorf("Name is required when specifying a docker volume")
+			}
+		}
+	}
+
+	for volName, dVol := range volumesWithDriverNoProvision {
 		ecsVolume := &ecs.Volume{
 			Name: aws.String(volName),
 		}
