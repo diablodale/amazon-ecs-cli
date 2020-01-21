@@ -284,13 +284,13 @@ func ConvertToMountPoints(cfgVolumes *yaml.Volumes, volumes *Volumes) ([]*ecs.Mo
 // a source volume and returns the appropriate source volume name
 func GetSourcePathAndUpdateVolumes(source string, volumes *Volumes) (string, error) {
 	var volumeName string
-	numVol := len(volumes.VolumeWithHost) + len(volumes.VolumeEmptyHost)
+	numVol := len(volumes.VolumeWithHost) + len(volumes.VolumeEmptyHost) + len(volumes.VolumeWithDriverNoProvision)
 	if source == "" {
 		// add mount point for volumes with an empty source path
 		volumeName = getVolumeName(numVol)
 		volumes.VolumeEmptyHost = append(volumes.VolumeEmptyHost, volumeName)
 	} else if project.IsNamedVolume(source) {
-		if !utils.InSlice(source, volumes.VolumeEmptyHost) {
+		if _, foundDNP := volumes.VolumeWithDriverNoProvision[source]; !utils.InSlice(source, volumes.VolumeEmptyHost) && !foundDNP {
 			return "", fmt.Errorf(
 				"named volume [%s] is used but no declaration was found in the volumes section", source)
 		}
