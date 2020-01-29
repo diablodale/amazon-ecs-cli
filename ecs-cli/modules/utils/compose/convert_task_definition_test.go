@@ -1619,9 +1619,9 @@ func TestConvertToTaskDefinitionVolumesWithDriverAndOpts(t *testing.T) {
 		"device": "fs-12345678:/",
 	}
 	driverOpts2 := map[string]string{
-		"type": "nfs4",
-		"o": "nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport",
-		"device": "fs-12345678.efs.us-east-1.amazonaws.com:/",
+		"type": "nfs",
+		"o": "addr=fs-12345678.efs.us-east-1.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport",
+		"device": ":/",
 	}
 	labels := map[string]string{
 		"testing.thisdoesntactuallyreallyadvancetheplot": "true",
@@ -1669,7 +1669,6 @@ func TestConvertToTaskDefinitionVolumesWithDriverAndOpts(t *testing.T) {
 		},
 		{
 			DockerVolumeConfiguration: &ecs.DockerVolumeConfiguration{
-				Autoprovision: aws.Bool(false),
 				Scope:         aws.String("task"),
 				Driver:        aws.String(""),
 				DriverOpts:    aws.StringMap(driverOpts),
@@ -1678,7 +1677,6 @@ func TestConvertToTaskDefinitionVolumesWithDriverAndOpts(t *testing.T) {
 		},
 		{
 			DockerVolumeConfiguration: &ecs.DockerVolumeConfiguration{
-				Autoprovision: aws.Bool(false),
 				Scope:         aws.String("task"),
 				Driver:        aws.String(volumeDriver2),
 				DriverOpts:    aws.StringMap(driverOpts2),
