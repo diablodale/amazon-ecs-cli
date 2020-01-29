@@ -284,13 +284,15 @@ func ConvertToMountPoints(cfgVolumes *yaml.Volumes, volumes *Volumes) ([]*ecs.Mo
 // a source volume and returns the appropriate source volume name
 func GetSourcePathAndUpdateVolumes(source string, volumes *Volumes) (string, error) {
 	var volumeName string
-	numVol := len(volumes.VolumeWithHost) + len(volumes.VolumeEmptyHost) + len(volumes.VolumeWithDriverNoProvision)
+	numVol := len(volumes.VolumeWithHost) + len(volumes.VolumeEmptyHost) + len(volumes.VolumeWithDriverNoProvision) + len(volumes.VolumeWithConfigProvision)
 	if source == "" {
 		// add mount point for volumes with an empty source path
 		volumeName = getVolumeName(numVol)
 		volumes.VolumeEmptyHost = append(volumes.VolumeEmptyHost, volumeName)
 	} else if project.IsNamedVolume(source) {
-		if _, foundDNP := volumes.VolumeWithDriverNoProvision[source]; !utils.InSlice(source, volumes.VolumeEmptyHost) && !foundDNP {
+		_, foundDNP := volumes.VolumeWithDriverNoProvision[source]
+		_, foundWCP := volumes.VolumeWithConfigProvision[source]
+		if !utils.InSlice(source, volumes.VolumeEmptyHost) && !foundDNP && !foundWCP {
 			return "", fmt.Errorf(
 				"named volume [%s] is used but no declaration was found in the volumes section", source)
 		}
@@ -434,13 +436,18 @@ func ConvertToVolumes(volumeConfigs map[string]*config.VolumeConfig, version str
 
 	// Add named volume configs:
 	if volumeConfigs != nil {
-		for name, config := range volumeConfigs {
-			if config == nil {
+		for name, volConfig := range volumeConfigs {
+			if volConfig == nil || reflect.DeepEqual(*volConfig, config.VolumeConfig{}) {
 				volumes.VolumeEmptyHost = append(volumes.VolumeEmptyHost, name)
-			} else if versions.GreaterThanOrEqualTo(version, "2.1") && (config.External.External) && (config.Driver != "") {
-				volumes.VolumeWithDriverNoProvision[name] = config.Driver
+			} else if versions.GreaterThanOrEqualTo(version, "2.1") && (volConfig.External.External) && (volConfig.Driver != "") {
+				volumes.VolumeWithDriverNoProvision[name] = volConfig.Driver
+			} else if !volConfig.External.External {
+				volumes.VolumeWithConfigProvision[name] = types.VolumeConfig{
+					Driver: volConfig.Driver,
+					DriverOpts: volConfig.DriverOpts,
+				}
 			} else {
-				return nil, logOutUnsupportedVolumeFields(config.Driver, config.DriverOpts, nil)
+				return nil, logOutUnsupportedVolumeFields(volConfig.Driver, volConfig.DriverOpts, nil)
 			}
 		}
 	}
@@ -459,6 +466,8 @@ func ConvertToV3Volumes(volConfig map[string]types.VolumeConfig, version string)
 				volumes.VolumeEmptyHost = append(volumes.VolumeEmptyHost, name)
 			} else if versions.GreaterThanOrEqualTo(version, "3.4") && (config.External.External) && (config.Driver != "") {
 				volumes.VolumeWithDriverNoProvision[name] = config.Driver
+			} else if !config.External.External {
+				volumes.VolumeWithConfigProvision[name] = config
 			} else {
 				return nil, logOutUnsupportedVolumeFields(config.Driver, config.DriverOpts, config.Labels)
 			}

@@ -20,6 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-cli/ecs-cli/modules/utils/regcredio"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/docker/cli/cli/compose/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -246,6 +247,13 @@ func convertToECSVolumes(hostPaths *adapter.Volumes, ecsParams *ECSParams) ([]*e
 	}
 	output = append(output, volumesWithDriverNoProvision...)
 
+	// volumes with provisioning/creating
+	volumesWithConfigProvision, err := mergeVolumesWithConfigProvision(hostPaths.VolumeWithConfigProvision, ecsParams)
+	if err != nil {
+		return nil, err
+	}
+	output = append(output, volumesWithConfigProvision...)
+
 	return output, nil
 }
 
@@ -269,25 +277,10 @@ func convertToECSSecrets(secrets []Secret) []*ecs.Secret {
 	return ecsSecrets
 }
 
-func mergeVolumesWithoutHost(composeVolumes []string, ecsParams *ECSParams) ([]*ecs.Volume, error) {
-	volumesWithoutHost := make(map[string]DockerVolume)
+func mergeHelperDockerVolsToEcsVols(dockerVolumes map[string]DockerVolume) []*ecs.Volume {
 	output := []*ecs.Volume{}
 
-	for _, volName := range composeVolumes {
-		volumesWithoutHost[volName] = DockerVolume{}
-	}
-
-	if ecsParams != nil {
-		for _, dockerVol := range ecsParams.TaskDefinition.DockerVolumes {
-			if dockerVol.Name != "" {
-				volumesWithoutHost[dockerVol.Name] = dockerVol
-			} else {
-				return nil, fmt.Errorf("Name is required when specifying a docker volume")
-			}
-		}
-	}
-
-	for volName, dVol := range volumesWithoutHost {
+	for volName, dVol := range dockerVolumes {
 		ecsVolume := &ecs.Volume{
 			Name: aws.String(volName),
 		}
@@ -310,12 +303,30 @@ func mergeVolumesWithoutHost(composeVolumes []string, ecsParams *ECSParams) ([]*
 		}
 		output = append(output, ecsVolume)
 	}
-	return output, nil
+	return output
+}
+
+func mergeVolumesWithoutHost(composeVolumes []string, ecsParams *ECSParams) ([]*ecs.Volume, error) {
+	volumesWithoutHost := make(map[string]DockerVolume)
+
+	for _, volName := range composeVolumes {
+		volumesWithoutHost[volName] = DockerVolume{}
+	}
+
+	if ecsParams != nil {
+		for _, dockerVol := range ecsParams.TaskDefinition.DockerVolumes {
+			if dockerVol.Name != "" {
+				volumesWithoutHost[dockerVol.Name] = dockerVol
+			} else {
+				return nil, fmt.Errorf("Name is required when specifying a docker volume")
+			}
+		}
+	}
+	return mergeHelperDockerVolsToEcsVols(volumesWithoutHost), nil
 }
 
 func mergeVolumesWithDriverNoProvision(composeVolumes map[string]string, ecsParams *ECSParams) ([]*ecs.Volume, error) {
 	volumesWithDriverNoProvision := make(map[string]DockerVolume)
-	output := []*ecs.Volume{}
 
 	for volName, volDriver := range composeVolumes {
 		volumesWithDriverNoProvision[volName] = DockerVolume{
@@ -337,31 +348,35 @@ func mergeVolumesWithDriverNoProvision(composeVolumes map[string]string, ecsPara
 			}
 		}
 	}
+	return mergeHelperDockerVolsToEcsVols(volumesWithDriverNoProvision), nil
+}
 
-	for volName, dVol := range volumesWithDriverNoProvision {
-		ecsVolume := &ecs.Volume{
-			Name: aws.String(volName),
+func mergeVolumesWithConfigProvision(composeVolumes map[string]types.VolumeConfig, ecsParams *ECSParams) ([]*ecs.Volume, error) {
+	volumesWithConfigProvision := make(map[string]DockerVolume)
+
+	for volName, volConfig := range composeVolumes {
+		volumesWithConfigProvision[volName] = DockerVolume{
+			Name:		   volName,
+			Scope:         aws.String("task"),
+			Autoprovision: aws.Bool(false),
+			Driver:        aws.String(volConfig.Driver),
+			DriverOptions: volConfig.DriverOpts,
+			Labels:        volConfig.Labels,
 		}
-		if dVol.Name != "" {
-			ecsVolume.DockerVolumeConfiguration = &ecs.DockerVolumeConfiguration{
-				Autoprovision: dVol.Autoprovision,
-			}
-			if dVol.Driver != nil {
-				ecsVolume.DockerVolumeConfiguration.Driver = dVol.Driver
-			}
-			if dVol.Scope != nil {
-				ecsVolume.DockerVolumeConfiguration.Scope = dVol.Scope
-			}
-			if dVol.DriverOptions != nil {
-				ecsVolume.DockerVolumeConfiguration.DriverOpts = aws.StringMap(dVol.DriverOptions)
-			}
-			if dVol.Labels != nil {
-				ecsVolume.DockerVolumeConfiguration.Labels = aws.StringMap(dVol.Labels)
-			}
-		}
-		output = append(output, ecsVolume)
 	}
-	return output, nil
+
+	if ecsParams != nil {
+		for _, dockerVol := range ecsParams.TaskDefinition.DockerVolumes {
+			if dockerVol.Name != "" {
+				if _, foundKey := volumesWithConfigProvision[dockerVol.Name]; foundKey {
+					return nil, fmt.Errorf("Volume %s with configuration in docker-compose appears also in ecs-params file", dockerVol.Name)
+				}
+			} else {
+				return nil, fmt.Errorf("Name is required when specifying a docker volume")
+			}
+		}
+	}
+	return mergeHelperDockerVolsToEcsVols(volumesWithConfigProvision), nil
 }
 
 func hasEssential(ecsParamsContainerDefs ContainerDefs, count int) bool {

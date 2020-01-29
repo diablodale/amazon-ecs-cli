@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-cli/ecs-cli/modules/utils/value"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/docker/cli/cli/compose/types"
 	"github.com/docker/libcompose/yaml"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,6 +40,7 @@ const (
 	namedVolume3   = "named_volume3"
 	volumeDriver   = "hardrock/driver"
 	volumeDriver2  = "heavymetal/driver:1.2.3"
+	volumeDriver3  = "deathcore/driver:4.5.6"
 )
 
 var defaultNetwork = &yaml.Network{
@@ -1608,6 +1610,156 @@ task_definition:
 
 	_, err = ConvertToTaskDefinition(testParams)
 	assert.Error(t, err, "External volume " + namedVolume + " in docker-compose appears also in ecs-params file")
+}
+
+func TestConvertToTaskDefinitionVolumesWithDriverAndOpts(t *testing.T) {
+	driverOpts := map[string]string{
+		"type": "efs",
+		"o": "iam,tls",
+		"device": "fs-12345678:/",
+	}
+	driverOpts2 := map[string]string{
+		"type": "nfs4",
+		"o": "nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport",
+		"device": "fs-12345678.efs.us-east-1.amazonaws.com:/",
+	}
+	labels := map[string]string{
+		"testing.thisdoesntactuallyreallyadvancetheplot": "true",
+	}
+
+	volumeConfigs := &adapter.Volumes{
+		VolumeWithConfigProvision: map[string]types.VolumeConfig{
+			namedVolume: types.VolumeConfig{
+				DriverOpts: driverOpts,
+			},
+			namedVolume2: types.VolumeConfig{
+				Driver: volumeDriver2,
+				DriverOpts: driverOpts2,
+				Labels: labels,
+			},
+		},
+		VolumeEmptyHost: []string{namedVolume3},
+	}
+
+	mountPoints := []*ecs.MountPoint{
+		{
+			ContainerPath: aws.String(containerPath),
+			ReadOnly:      aws.Bool(false),
+			SourceVolume:  aws.String(namedVolume),
+		},
+		{
+			ContainerPath: aws.String(containerPath2),
+			ReadOnly:      aws.Bool(false),
+			SourceVolume:  aws.String(namedVolume2),
+		},
+		{
+			ContainerPath: aws.String(containerPath3),
+			ReadOnly:      aws.Bool(false),
+			SourceVolume:  aws.String(namedVolume3),
+		},
+	}
+	containerConfig := adapter.ContainerConfig{
+		MountPoints: mountPoints,
+	}
+	containerConfigs := []adapter.ContainerConfig{containerConfig}
+
+	expectedVolumes := []*ecs.Volume{
+		{
+			Name: aws.String(namedVolume3),
+		},
+		{
+			DockerVolumeConfiguration: &ecs.DockerVolumeConfiguration{
+				Autoprovision: aws.Bool(false),
+				Scope:         aws.String("task"),
+				Driver:        aws.String(""),
+				DriverOpts:    aws.StringMap(driverOpts),
+			},
+			Name: aws.String(namedVolume),
+		},
+		{
+			DockerVolumeConfiguration: &ecs.DockerVolumeConfiguration{
+				Autoprovision: aws.Bool(false),
+				Scope:         aws.String("task"),
+				Driver:        aws.String(volumeDriver2),
+				DriverOpts:    aws.StringMap(driverOpts2),
+				Labels:        aws.StringMap(labels),
+			},
+			Name: aws.String(namedVolume2),
+		},
+	}
+
+	testParams := ConvertTaskDefParams{
+		TaskDefName:            projectName,
+		TaskRoleArn:            "",
+		RequiredCompatibilites: "",
+		Volumes:                volumeConfigs,
+		ContainerConfigs:       containerConfigs,
+		ECSParams:              nil,
+	}
+
+	taskDefinition, err := ConvertToTaskDefinition(testParams)
+	assert.NoError(t, err, "Unexpected error converting Task Definition")
+
+	actualVolumes := taskDefinition.Volumes
+	assert.ElementsMatch(t, expectedVolumes, actualVolumes, "Expected volumes to match")
+}
+
+func TestConvertToTaskDefinitionVolumesWithDriverAndOptsAndECSParamsError(t *testing.T) {
+	driverOpts := map[string]string{
+		"type": "efs",
+		"o": "iam,tls",
+		"device": "fs-12345678:/",
+	}
+
+	volumeConfigs := &adapter.Volumes{
+		VolumeWithConfigProvision: map[string]types.VolumeConfig{
+			namedVolume: types.VolumeConfig{
+				DriverOpts: driverOpts,
+			},
+		},
+		VolumeEmptyHost: []string{namedVolume2},
+	}
+
+	mountPoints := []*ecs.MountPoint{
+		{
+			ContainerPath: aws.String(containerPath),
+			ReadOnly:      aws.Bool(false),
+			SourceVolume:  aws.String(namedVolume),
+		},
+		{
+			ContainerPath: aws.String(containerPath2),
+			ReadOnly:      aws.Bool(false),
+			SourceVolume:  aws.String(namedVolume2),
+		},
+	}
+	containerConfig := adapter.ContainerConfig{
+		MountPoints: mountPoints,
+	}
+	containerConfigs := []adapter.ContainerConfig{containerConfig}
+
+	content := `version: 1
+task_definition:
+  docker_volumes:
+  - name: ` + namedVolume + `
+    scope: task
+    autoprovision: false
+  - name: ` + namedVolume3 + `
+    scope: shared
+    autoprovision: false
+    driver: '` + volumeDriver3 + `'`
+	ecsParams, err := createTempECSParamsForTest(t, content)
+
+	testParams := ConvertTaskDefParams{
+		TaskDefName:            projectName,
+		TaskRoleArn:            "",
+		RequiredCompatibilites: "",
+		Volumes:                volumeConfigs,
+		ContainerConfigs:       containerConfigs,
+		ECSParams:              ecsParams,
+	}
+
+	_, err = ConvertToTaskDefinition(testParams)
+	assert.Error(t, err, "Volume " + namedVolume + " with configuration in docker-compose appears also in ecs-params file")
 }
 
 func TestIsZeroForEmptyConfig(t *testing.T) {

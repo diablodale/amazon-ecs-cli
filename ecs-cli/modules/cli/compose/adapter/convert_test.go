@@ -514,6 +514,7 @@ func TestConvertToVolumes(t *testing.T) {
 		VolumeWithHost:  make(map[string]string), // map with key:=hostSourcePath value:=VolumeName
 		VolumeEmptyHost: []string{namedVolume},   // Declare one volume with an empty host
 		VolumeWithDriverNoProvision: make(map[string]string), // map with key:=VolumeName value:=VolumeDriver
+		VolumeWithConfigProvision: make(map[string]types.VolumeConfig), // map with key:=VolumeName value:=VolumeConfig
 	}
 
 	actual, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
@@ -522,20 +523,36 @@ func TestConvertToVolumes(t *testing.T) {
 	assert.Equal(t, expected, actual, "Named volumes should match")
 }
 
-func TestConvertToVolumes_ErrorsWithDriverSubfield(t *testing.T) {
+func TestConvertToVolumes_WithDriverSubfield(t *testing.T) {
 	libcomposeVolumeConfigs := map[string]*config.VolumeConfig{
 		namedVolume: &config.VolumeConfig{
 			Driver: "noodles",
 		},
 	}
 
-	_, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
+	expected := &Volumes{
+		VolumeWithHost:  map[string]string{},
+		VolumeEmptyHost: []string{},
+		VolumeWithDriverNoProvision: map[string]string{},
+		VolumeWithConfigProvision: map[string]types.VolumeConfig{
+			namedVolume: types.VolumeConfig{
+				Driver: "noodles",
+			},
+		},
+	}
 
-	assert.Error(t, err, "Expected error converting libcompose volume configs when driver is specified")
+	actual, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
+
+	assert.NoError(t, err, "Unexpected error converting libcompose volume configs")
+	assert.Equal(t, expected, actual, "Named volume drivers should match")
 }
 
-func TestConvertToVolumes_ErrorsWithDriverOptsSubfield(t *testing.T) {
-	driverOpts := map[string]string{"foo": "bar"}
+func TestConvertToVolumes_WithDriverOptsSubfield(t *testing.T) {
+	driverOpts := map[string]string{
+		"type": "efs",
+		"o": "iam,tls",
+		"device": "fs-12345678:/",
+	}
 
 	libcomposeVolumeConfigs := map[string]*config.VolumeConfig{
 		namedVolume: &config.VolumeConfig{
@@ -543,9 +560,53 @@ func TestConvertToVolumes_ErrorsWithDriverOptsSubfield(t *testing.T) {
 		},
 	}
 
-	_, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
+	expected := &Volumes{
+		VolumeWithHost:  map[string]string{},
+		VolumeEmptyHost: []string{},
+		VolumeWithDriverNoProvision: map[string]string{},
+		VolumeWithConfigProvision: map[string]types.VolumeConfig{
+			namedVolume: types.VolumeConfig{
+				DriverOpts: driverOpts,
+			},
+		},
+	}
 
-	assert.Error(t, err, "Expected error converting libcompose volume configs when driver options are specified")
+	actual, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
+
+	assert.NoError(t, err, "Unexpected error converting libcompose volume configs")
+	assert.Equal(t, expected, actual, "Named volume driverOpts should match")
+}
+
+func TestConvertToVolumes_WithDriverAndOptsSubfield(t *testing.T) {
+	driverOpts := map[string]string{
+		"type": "efs",
+		"o": "iam,tls",
+		"device": "fs-12345678:/",
+	}
+
+	libcomposeVolumeConfigs := map[string]*config.VolumeConfig{
+		namedVolume: &config.VolumeConfig{
+			Driver: "local",
+			DriverOpts: driverOpts,
+		},
+	}
+
+	expected := &Volumes{
+		VolumeWithHost:  map[string]string{},
+		VolumeEmptyHost: []string{},
+		VolumeWithDriverNoProvision: map[string]string{},
+		VolumeWithConfigProvision: map[string]types.VolumeConfig{
+			namedVolume: types.VolumeConfig{
+				Driver: "local",
+				DriverOpts: driverOpts,
+			},
+		},
+	}
+
+	actual, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
+
+	assert.NoError(t, err, "Unexpected error converting libcompose volume configs")
+	assert.Equal(t, expected, actual, "Named volume driver and driverOpts should match")
 }
 
 func TestConvertToVolumes_ErrorsWithExternalSubfield(t *testing.T) {
@@ -557,9 +618,17 @@ func TestConvertToVolumes_ErrorsWithExternalSubfield(t *testing.T) {
 		},
 	}
 
-	_, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
+	expected := &Volumes{
+		VolumeWithHost:  make(map[string]string),
+		VolumeEmptyHost: []string{namedVolume},
+		VolumeWithDriverNoProvision: make(map[string]string),
+		VolumeWithConfigProvision: make(map[string]types.VolumeConfig),
+	}
 
-	assert.Error(t, err, "Expected error converting libcompose volume configs when external is specified")
+	actual, err := ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
+
+	assert.NoError(t, err, "Unexpected error converting libcompose volume configs")
+	assert.Equal(t, expected, actual, "Named volumes should match")
 
 	external = yaml.External{External: true}
 	libcomposeVolumeConfigs = map[string]*config.VolumeConfig{
@@ -570,7 +639,7 @@ func TestConvertToVolumes_ErrorsWithExternalSubfield(t *testing.T) {
 
 	_, err = ConvertToVolumes(libcomposeVolumeConfigs, "2.0")
 
-	assert.Error(t, err, "Expected error converting libcompose volume configs when external is specified")
+	assert.Error(t, err, "Expected error converting libcompose volume configs when external=true is specified")
 }
 
 func TestRegisterTaskDefinitionInputEquivalence(t *testing.T) {
