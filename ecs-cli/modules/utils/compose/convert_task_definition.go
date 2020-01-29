@@ -358,7 +358,7 @@ func mergeVolumesWithConfigProvision(composeVolumes map[string]types.VolumeConfi
 		volumesWithConfigProvision[volName] = DockerVolume{
 			Name:		   volName,
 			Scope:         aws.String("task"),
-			Autoprovision: aws.Bool(false),
+			Autoprovision: nil,
 			Driver:        aws.String(volConfig.Driver),
 			DriverOptions: volConfig.DriverOpts,
 			Labels:        volConfig.Labels,
